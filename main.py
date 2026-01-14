@@ -1,5 +1,4 @@
 import os
-import json
 from flask import Flask, request
 import telebot
 from pymongo import MongoClient
@@ -35,14 +34,19 @@ def start(message):
     username = user.username if user.username else "NoUsername"
 
     text = (
-        f"Hello {user.first_name}! 😊<br><br>"
-        "How are you?<br><br>"
-        f"I am {BOT_NAME}<br>"
+        f"Hello {user.first_name}! 😊\n\n"
+        "How are you?\n\n"
+        f"I am {BOT_NAME}\n"
         f'Owner: <a href="tg://user?id={OWNER_ID}">{BOT_OWNER_NAME}</a> 💖'
     )
 
-    bot.send_message(message.chat.id, text)
+    bot.send_message(
+        message.chat.id,
+        text,
+        disable_web_page_preview=True
+    )
 
+    # Save user
     users.update_one(
         {"user_id": user.id},
         {"$set": {
@@ -53,10 +57,11 @@ def start(message):
         upsert=True
     )
 
+    # Log channel
     log = (
-        "BOT STARTED<br><br>"
-        f"Name: {user.first_name}<br>"
-        f"User ID: {user.id}<br>"
+        "BOT STARTED\n\n"
+        f"Name: {user.first_name}\n"
+        f"User ID: {user.id}\n"
         f"Username: @{username}"
     )
     bot.send_message(LOG_CHANNEL_ID, log)
@@ -68,8 +73,8 @@ def added_to_group(update):
     chat = update.chat
     if chat.type in ["group", "supergroup"]:
         log = (
-            "BOT ADDED TO GROUP<br><br>"
-            f"Group Name: {chat.title}<br>"
+            "BOT ADDED TO GROUP\n\n"
+            f"Group Name: {chat.title}\n"
             f"Group ID: {chat.id}"
         )
         bot.send_message(LOG_CHANNEL_ID, log)
@@ -80,13 +85,13 @@ def added_to_group(update):
 def welcome(message):
     for member in message.new_chat_members:
         text = (
-            f"Hello {member.first_name} 👋<br><br>"
-            "Welcome to our group 😊<br>"
-            "Stay active and enjoy ❤️<br><br>"
-            f"User ID: {member.id}<br>"
+            f"Hello {member.first_name} 👋\n\n"
+            "Welcome to our group 😊\n"
+            "Stay active and enjoy ❤️\n\n"
+            f"User ID: {member.id}\n"
             f'Group Owner: <a href="tg://user?id={OWNER_ID}">OWNER</a>'
         )
-        bot.send_message(message.chat.id, text)
+        bot.send_message(message.chat.id, text, disable_web_page_preview=True)
 
 # ================= BROADCAST =====================
 
@@ -115,19 +120,18 @@ def broadcast(message):
 @bot.message_handler(commands=["support"])
 def support(message):
     text = (
-        "SUPPORT<br><br>"
-        f"Group: {SUPPORT_GROUP}<br>"
-        f"Channel: {SUPPORT_CHANNEL}<br>"
+        "SUPPORT\n\n"
+        f"Group: {SUPPORT_GROUP}\n"
+        f"Channel: {SUPPORT_CHANNEL}\n"
         f'Owner: <a href="tg://user?id={OWNER_ID}">{BOT_OWNER_NAME}</a>'
     )
-    bot.send_message(message.chat.id, text)
+    bot.send_message(message.chat.id, text, disable_web_page_preview=True)
 
 # ================= WEBHOOK =======================
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
-    json_data = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json.loads(json_data))
+    update = telebot.types.Update.de_json(request.get_json(force=True))
     bot.process_new_updates([update])
     return "OK", 200
 
@@ -147,3 +151,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 10000))
     )
+
