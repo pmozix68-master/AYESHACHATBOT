@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Flask, request
 import telebot
 from pymongo import MongoClient
@@ -42,7 +43,6 @@ def start(message):
 
     bot.send_message(message.chat.id, text)
 
-    # Save user
     users.update_one(
         {"user_id": user.id},
         {"$set": {
@@ -53,7 +53,6 @@ def start(message):
         upsert=True
     )
 
-    # Log channel
     log = (
         "BOT STARTED<br><br>"
         f"Name: {user.first_name}<br>"
@@ -128,7 +127,7 @@ def support(message):
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     json_data = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json_data)
+    update = telebot.types.Update.de_json(json.loads(json_data))
     bot.process_new_updates([update])
     return "OK", 200
 
