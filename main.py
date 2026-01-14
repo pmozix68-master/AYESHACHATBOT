@@ -3,10 +3,11 @@ from flask import Flask, request
 import telebot
 from pymongo import MongoClient
 
-# ============== ENV VARIABLES =================
+# ================= ENV VARIABLES =================
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 MONGO_URL = os.environ.get("MONGO_URL")
+
 OWNER_ID = int(os.environ.get("OWNER_ID"))
 LOG_CHANNEL_ID = int(os.environ.get("LOG_CHANNEL_ID"))
 
@@ -14,18 +15,18 @@ SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP")
 SUPPORT_CHANNEL = os.environ.get("SUPPORT_CHANNEL")
 
 BOT_NAME = "AYESHA CHATBOT"
-BOT_OWNER = "OZIXCEO"
+BOT_OWNER_NAME = "OZIXCEO"
 
-# ==============================================
+# =================================================
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 app = Flask(__name__)
 
 mongo = MongoClient(MONGO_URL)
 db = mongo["ayesha_bot"]
 users = db["users"]
 
-# ================= START =======================
+# ================= START COMMAND =================
 
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -33,14 +34,15 @@ def start(message):
     username = user.username if user.username else "NoUsername"
 
     text = (
-        f"✨ Hello {user.first_name}! 😊\n\n"
-        f"How are you?\n\n"
-        f"I am {BOT_NAME}\n"
-        f"Owner: {BOT_OWNER} 💖"
+        f"Hello {user.first_name}! 😊<br><br>"
+        "How are you?<br><br>"
+        f"I am {BOT_NAME}<br>"
+        f'Owner: <a href="tg://user?id={OWNER_ID}">{BOT_OWNER_NAME}</a> 💖'
     )
 
     bot.send_message(message.chat.id, text)
 
+    # Save user
     users.update_one(
         {"user_id": user.id},
         {"$set": {
@@ -51,42 +53,43 @@ def start(message):
         upsert=True
     )
 
+    # Log channel
     log = (
-        "📥 BOT STARTED\n\n"
-        f"Name: {user.first_name}\n"
-        f"User ID: {user.id}\n"
+        "BOT STARTED<br><br>"
+        f"Name: {user.first_name}<br>"
+        f"User ID: {user.id}<br>"
         f"Username: @{username}"
     )
     bot.send_message(LOG_CHANNEL_ID, log)
 
-# ================= GROUP ADD LOG ================
+# ============ BOT ADDED TO GROUP LOG ==============
 
 @bot.my_chat_member_handler()
-def bot_added(update):
+def added_to_group(update):
     chat = update.chat
     if chat.type in ["group", "supergroup"]:
         log = (
-            "➕ BOT ADDED TO GROUP\n\n"
-            f"Group Name: {chat.title}\n"
+            "BOT ADDED TO GROUP<br><br>"
+            f"Group Name: {chat.title}<br>"
             f"Group ID: {chat.id}"
         )
         bot.send_message(LOG_CHANNEL_ID, log)
 
-# ================= NEW MEMBER ===================
+# ============ NEW MEMBER WELCOME ==================
 
 @bot.message_handler(content_types=["new_chat_members"])
 def welcome(message):
     for member in message.new_chat_members:
         text = (
-            f"👋 Hello {member.first_name}!\n\n"
-            "Welcome to our group 😊\n"
-            "Stay active and enjoy 💫\n\n"
-            f"User ID: {member.id}\n"
-            f"Group Owner ID: {OWNER_ID}"
+            f"Hello {member.first_name} 👋<br><br>"
+            "Welcome to our group 😊<br>"
+            "Stay active and enjoy ❤️<br><br>"
+            f"User ID: {member.id}<br>"
+            f'Group Owner: <a href="tg://user?id={OWNER_ID}">OWNER</a>'
         )
         bot.send_message(message.chat.id, text)
 
-# ================= BROADCAST ====================
+# ================= BROADCAST =====================
 
 @bot.message_handler(commands=["broadcast"])
 def broadcast(message):
@@ -95,7 +98,7 @@ def broadcast(message):
 
     msg = message.text.replace("/broadcast", "").strip()
     if not msg:
-        bot.send_message(message.chat.id, "❌ Message missing")
+        bot.send_message(message.chat.id, "Message missing")
         return
 
     sent = 0
@@ -106,35 +109,34 @@ def broadcast(message):
         except:
             pass
 
-    bot.send_message(message.chat.id, f"✅ Broadcast sent to {sent} users")
+    bot.send_message(message.chat.id, f"Broadcast sent to {sent} users")
 
-# ================= SUPPORT ======================
+# ================= SUPPORT =======================
 
 @bot.message_handler(commands=["support"])
 def support(message):
     text = (
-        "🆘 SUPPORT\n\n"
-        f"Group: {SUPPORT_GROUP}\n"
-        f"Channel: {SUPPORT_CHANNEL}\n"
-        f"Owner ID: {OWNER_ID}"
+        "SUPPORT<br><br>"
+        f"Group: {SUPPORT_GROUP}<br>"
+        f"Channel: {SUPPORT_CHANNEL}<br>"
+        f'Owner: <a href="tg://user?id={OWNER_ID}">{BOT_OWNER_NAME}</a>'
     )
     bot.send_message(message.chat.id, text)
 
-# ================= WEBHOOK ======================
+# ================= WEBHOOK =======================
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
-    update = telebot.types.Update.de_json(
-        request.stream.read().decode("utf-8")
-    )
+    json_data = request.get_data().decode("utf-8")
+    update = telebot.types.Update.de_json(json_data)
     bot.process_new_updates([update])
     return "OK", 200
 
 @app.route("/")
-def index():
+def home():
     return "AYESHA CHATBOT IS RUNNING"
 
-# ================= START SERVER =================
+# ================= RUN SERVER ====================
 
 if __name__ == "__main__":
     bot.remove_webhook()
